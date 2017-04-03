@@ -1,0 +1,13 @@
+cssselect
+Flask
+gevent
+gunicorn
+jsonpath_rw
+jsonpath_rw_ext
+lxml
+psutil
+py_snippets
+pymongo
+requests
+sqlitedict
+torequests>=3.1.0

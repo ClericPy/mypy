@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <title>Python 文章列表 - 参数配置</title>
+   <link href="https://cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+   <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+   <script src="https://apps.bdimg.com/libs/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<form class="form-horizontal" role="form" action="index">
+<h2>参数配置(或 <a href="index">直接进入</a>)：</h2>
+   <div class="form-group">
+      <label for="firstname" class="col-sm-2 control-label">起始页码</label>
+      <div class="col-sm-10">
+         <input type="text" class="form-control" name="page" 
+            placeholder="不填默认为 1">
+      </div>
+   </div>
+   <div class="form-group">
+      <label for="firstname" class="col-sm-2 control-label">每页数量</label>
+      <div class="col-sm-10">
+         <input type="text" class="form-control" name="each_page" 
+            placeholder="不填默认为 {{each_page}}">
+      </div>
+   </div>
+   <div class="form-group">
+      <label for="firstname" class="col-sm-2 control-label">自动翻页</label>
+      <div class="col-sm-10">
+         <input type="text" class="form-control" name="autopage" 
+            placeholder="默认为 1，即自动翻页；0 为手动翻页">
+      </div>
+   </div>
+   <div class="form-group">
+      <label for="firstname" class="col-sm-2 control-label">是否有图</label>
+      <div class="col-sm-10">
+         <input type="text" class="form-control" name="iscover" 
+            placeholder="默认为 1，即有图模式；0 为无图模式">
+      </div>
+   </div>
+   <div class="form-group">
+      <label for="firstname" class="col-sm-2 control-label">显示等级</label>
+      <div class="col-sm-10">
+         <input type="text" class="form-control" name="level" 
+            placeholder="默认为 1，即展示所有内容；数字越大，显示越少。（1 ~ 5）">
+      </div>
+   </div>
+   <div class="form-group">
+      <label for="firstname" class="col-sm-2 control-label" style="color:red">搜关键词</label>
+      <div class="col-sm-10">
+         <input type="text" class="form-control" name="query" 
+            placeholder="不填默认为空">
+      </div>
+   </div>
+   <div class="form-group">
+      <div class="col-sm-offset-2 col-sm-10">
+         <button type="submit" class="btn btn-default">提交</button> / <a href="index">直接进入</a><br>
+         <br>
+         <h3>Introduction :</h3>
+         <h4><p><b>Level划分指标（星越多越稀少）：★★★★★ = 百年难遇；★★★★ = 高质量/周报类；★★★ = 一般干货；★★ = 普通博客；★ = 检索结果。</b></p>
+         <font color="blue">[时间]蓝色字体</font>：最新文章（30分钟内）；<font article-type="top">加粗边框</font>：置顶1天（周报类型）；<font article-type="hot">[来源]深绿字体</font>：热门文章（来源大于1）。<font color='white'>RSS | API | EMAIL SUBSCRIBE | TOP ARTICLES 还没打算做……</font>            
+            <br>排版不满意请自行 [CTRL + 滚轮] 调整，通过修改 <a target="_self" href="settings"><font color="red">参数配置(搜索)</font></a>，可调整展示内容（目前暂不接入低于 Lv 3 的文章）。<br>相关链接：<a href="https://github.com/ClericPy/mypy">项目源码</a> | <a href="https://www.processon.com/view/link/56f782e0e4b0d181b19c9a1c">整体架构</a> | <a href="https://www.processon.com/view/link/56f7834be4b0d713bb15d543">数据来源/接入进度</a> | <a href="https://github.com/ClericPy/mypy/issues">反馈</a> <br><br><br>
+            <img src="data:image/png;base64,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" alt=""></h4>
+      </div>
+   </div>
+
+</form>
+
+</body>
+</html>
