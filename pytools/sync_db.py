@@ -19,11 +19,11 @@ def sync(db_path='./static/database.db', force_download=False, update_list=None)
                 DB = Saver(db_path, mode='sqlitedict')
                 if update_list:
                     # yield '%s docs need to update urls' % len(update_list)
-                    preview_titles = [i['title'] for i in update_list]
+                    preview_titles = [i['title'] for i in update_list][:5]
                     for item in update_list:
                         collection.update_one({'_id': item['_id']}, {
                                               '$set': {'urls': item['urls']}}, upsert=True)
-                    yield '%s update_list finished...\n%s' % len(update_list,preview_titles)
+                    yield '%s update_list finished...\n%s' % (len(update_list), preview_titles)
                     return
                 if force_download:
                     yield 'force_download only...'
@@ -62,7 +62,7 @@ def sync(db_path='./static/database.db', force_download=False, update_list=None)
                             local_docs + to_download, key=lambda x: x['time'],
                             reverse=True)
                     # yield '%s  %s' % (len(to_download), 'downloaded...')
-                
+
                 yield '============== sync_db finished =============='
                 return
         except:
