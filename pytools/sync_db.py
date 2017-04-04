@@ -22,7 +22,7 @@ def sync(db_path='./static/database.db', force_download=False, update_list=None)
                     preview_titles = [i['title'] for i in update_list][:5]
                     for item in update_list:
                         collection.update_one({'_id': item['_id']}, {
-                                              '$set': {'urls': item['urls']}}, upsert=True)
+                                              '$set': item}, upsert=True)
                     yield '%s update_list finished...\n%s' % (len(update_list), preview_titles)
                     return
                 if force_download:
