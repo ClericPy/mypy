@@ -1,14 +1,17 @@
 
 import os
+import random
+import time
+from threading import Timer
+
 import flask
 import psutil
-from threading import Timer
 import requests
-import random
-from sqlitedict import SqliteDict
-import time
-from .python_articles import python_articles
+
 from .crawler import crawler_worker
+from .python_articles import python_articles
+from .sync_db import sync
+from py_snippets.saver import Saver
 
 
 def ttime(rawtime=None, tzone=8 * 3600):
@@ -30,9 +33,11 @@ def logit(string):
         f.write(log_string)
 
 app = flask.Flask(__name__)
-with SqliteDict('./pytools/static/database.db', autocommit=True) as DB:
-    DB['spider_status'] = 'free'
-    DB['spider_time'] = 0
+
+DB = Saver('./pytools/static/database.db', mode='sqlitedict')
+DB['spider_status'] = 'free'
+DB['spider_time'] = 0
+not_sync_yet = 1
 # os.environ['downloaddb'] = 'aa'
 
 funcs = [python_articles, ]
@@ -96,14 +101,18 @@ def showall():
 def time_machine():
     # print('启动爬虫： %s' % os.getpid())
     # 每隔 5 分钟检测一次，如果爬虫worker空闲，且上次完成时间已经过去30分钟，则执行爬虫子进程。
+    global not_sync_yet
+    if not_sync_yet:  # :
+        for i in sync('./pytools/static/database.db', os.environ.get('DOWNLOAD_FROM_MONGODB')):
+            logit(i)
+        not_sync_yet = 0
     while 1:
         try:
-            with SqliteDict('./pytools/static/database.db', autocommit=True) as DB:
                 # DB['spider_status'] = 'free'
                 # DB['spider_time'] = 0
-                spider_status = DB['spider_status']
-                spider_time = DB['spider_time']
-                spider_time_passed = time.time() - spider_time
+            spider_status = DB['spider_status']
+            spider_time = DB['spider_time']
+            spider_time_passed = time.time() - spider_time
             if spider_status != 'free':
                 print('PID %s : 发现爬虫进程 %s 正在运行，pass...' %
                       (os.getpid(), spider_status))
@@ -119,13 +128,11 @@ def time_machine():
                 break
             if spider_status == 'free' and spider_time_passed >= 30 * 60:
                 # 阻塞其他进程发起爬虫命令，完成后修改爬虫
-                with SqliteDict('./pytools/static/database.db', autocommit=True) as DB:
-                    DB['spider_status'] = str(os.getpid())
+                DB['spider_status'] = str(os.getpid())
                 print('PID %s :  开始采集数据。' % (os.getpid()))
                 crawler_worker()
-                with SqliteDict('./pytools/static/database.db', autocommit=True) as DB:
-                    DB['spider_time'] = time.time()
-                    DB['spider_status'] = 'free'
+                DB['spider_time'] = time.time()
+                DB['spider_status'] = 'free'
                 print('PID %s : 采集结束。%s' % (os.getpid(), ttime()))
                 print('当前服务器负载：CPU：{}% ， Memory： {}%'.format(
                     round(sum(psutil.cpu_times_percent()[:2]), 1), psutil.virtual_memory().percent))
@@ -135,32 +142,12 @@ def time_machine():
             break
         except Exception as e:
             print('5分钟后 %s 出错重试 : %s' % (os.getpid(), e))
-            with SqliteDict('./pytools/static/database.db', autocommit=True) as DB:
-                DB['spider_time'] = time.time()
-                DB['spider_status'] = 'free'
+            DB['spider_time'] = time.time()
+            DB['spider_status'] = 'free'
             time.sleep(randomtime() + 300)
             continue
     Timer(10 * 60 + randomtime(), time_machine).start()
 
 
-# from pymongo import MongoClient
-
-# mongodb_uri = os.environ.get('MONGODB_URI_LD')
-# if mongodb_uri and os.environ.get('init_mongodb'):
-#     client = MongoClient(mongodb_uri)
-#     db = client.heroku_ggpxscwz
-#     collection = db.article
-#     try:
-#         with SqliteDict('./pytools/static/database.db', autocommit=True) as DB:
-#             ss = DB['article'][::-1]
-#         collection.insert_many(ss)
-#         logit('init ok')
-#     except:
-#         import traceback
-#         logit(traceback.format_exc())
-#     finally:
-#         client.close()
-
 print('Open spider. pid: %s' % os.getpid())
-
 Timer(randomtime(), time_machine).start()

@@ -6,11 +6,11 @@ import time
 from platform import platform
 from threading import Timer
 
+from py_snippets.saver import Saver
 from torequests import Async
 
-from sqlitedict import SqliteDict
-
 from . import rules
+from .sync_db import sync
 
 
 # 文章：article（list）；问答：issue（list）；课程：course（list）；资讯：news（list）；更新时间：time（timestamp）。
@@ -57,44 +57,47 @@ def local_storage():
     # 重新按时间排序
     # 清理掉超过 maxnum 的部分
     maxnum = 1000000
+    toupdate_list = []
     crawl_articles = rules.get_all()
     # print('All crawl missions finished...')
-    with SqliteDict('./pytools/static/database.db', autocommit=True) as DB:
-        old_articles = DB.get('article', [])
-        old_articles_dict = {i['_id'].lower(): i for i in old_articles}
-        old_articles_urls = set()
-        for i in old_articles:
-            old_articles_urls = old_articles_urls | set(i['urls'].values())
-        # old_articles_keys = set(old_articles_dict.keys())
-        # crawl_articles1 = {i for i in crawl_articles if not i.keys() & old_articles_keys}
-        new_articles = []
-        for i in crawl_articles:
-            if set(i['urls'].values()) & old_articles_urls:
-                continue
-            if i['_id'] not in old_articles_dict.keys():
-                new_articles.append(i)
-                # old_articles_keys = old_articles_keys | {i['_id']}
-                old_articles_dict[i['_id']] = i
-            else:
-                old_articles_dict[i['_id']]['urls'].update(i['urls'])
-                # old_articles_dict[i['_id']]['like'] = old_articles_dict[i['_id']]['like'] | i['like']
-                old_articles_dict[i['_id']]['level'] = max(
-                    old_articles_dict[i['_id']]['level'], i['level'])
-        pre_articles = [old_articles_dict[i] for i in old_articles_dict]
-        logit('总计 %s 篇文章，采集到 %s 条数据；新收入 %s 条数据 %s\n%s' % (len(pre_articles), len(
-            crawl_articles), len(new_articles), [i['title'] for i in new_articles][:10], '=' * 50))
-        sorted_articles = sorted(
-            pre_articles, key=lambda x: (x['time'], x['level'], x['_id']), reverse=True)
-        # 置顶文章放到前面，过期置顶不用管，等它自己排序被排出500外。
-        tops = []
-        meta_data = sorted_articles[:]
-        time1 = time.time()
-        normal_articles_not_clean = (
-            x if time1 - x['time'] > x['toptime'] else tops.append(meta_data[i]) for i, x in enumerate(sorted_articles))
-        normal_articles = [i for i in normal_articles_not_clean if i]
-        DB['article'] = (tops + normal_articles)[:maxnum]
-        DB['time'] = time.time()
-        DB['updatetime'] = ttime()
+    DB = Saver('./pytools/static/database.db')
+    old_articles = DB['article']
+    old_articles_dict = {i['_id']: i for i in old_articles}
+    old_articles_urls = set()
+    for i in old_articles:
+        old_articles_urls = old_articles_urls | set(i['urls'].values())
+    new_articles = []
+    for i in crawl_articles:
+        if set(i['urls'].values()) & old_articles_urls:
+            continue
+        if i['_id'] not in old_articles_dict.keys():
+            new_articles.append(i)
+            # old_articles_keys = old_articles_keys | {i['_id']}
+            old_articles_dict[i['_id']] = i
+        else:
+            old_articles_dict[i['_id']]['urls'].update(i['urls'])
+            toupdate_list.append(old_articles_dict[i['_id']])
+            # old_articles_dict[i['_id']]['like'] = old_articles_dict[i['_id']]['like'] | i['like']
+            old_articles_dict[i['_id']]['level'] = max(
+                old_articles_dict[i['_id']]['level'], i['level'])
+    pre_articles = [old_articles_dict[i] for i in old_articles_dict]
+    logit('总计 %s 篇文章，采集到 %s 条数据；新收入 %s 条数据 %s\n%s' % (len(pre_articles), len(
+        crawl_articles), len(new_articles), [i['title'] for i in new_articles][:10], '=' * 50))
+    sorted_articles = sorted(
+        pre_articles, key=lambda x: (x['time'], x['level'], x['_id']), reverse=True)
+    # 置顶文章放到前面，过期置顶不用管，等它自己排序被排出500外。
+    tops = []
+    meta_data = sorted_articles[:]
+    time1 = time.time()
+    normal_articles_not_clean = (
+        x if time1 - x['time'] > x['toptime'] else tops.append(meta_data[i]) for i, x in enumerate(sorted_articles))
+    normal_articles = [i for i in normal_articles_not_clean if i]
+    DB['article'] = (tops + normal_articles)[:maxnum]
+    DB['time'] = time.time()
+    DB['updatetime'] = ttime()
+    for i in sync('./pytools/static/database.db',update_list=toupdate_list):
+        # 暂时没时间搞, 先全量匹配一次吧...
+        print(i)
     conn = sqlite3.connect('./pytools/static/database.db')
     conn.execute("VACUUM")
     conn.execute("VACUUM")

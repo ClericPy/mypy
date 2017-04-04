@@ -57,8 +57,8 @@ def status():
             with open('./pytools/python_articles/static/errors.txt', 'w', encoding='utf-8') as f:
                 f.write('')
                 return 'Cleaned...'
-        server_status = '<h2>当前服务器负载：CPU：{}% ， Memory： {}% ， DB: {} KB </h2>'.format(round(sum(psutil.cpu_times_percent(
-        )[:2]), 1), psutil.virtual_memory().percent, os.path.getsize('./pytools/static/database.db') // 1024)
+        server_status = '<h2>当前服务器负载：CPU：{}% ， Memory： {}% (free: {}, used: {}, total: {} MB)， DB: {} KB </h2>'.format(round(sum(psutil.cpu_times_percent(
+        )[:2]), 1), psutil.virtual_memory().percent, round(psutil.virtual_memory().free/1048576), round(psutil.virtual_memory().used/1048576), round(psutil.virtual_memory().total/1048576), os.path.getsize('./pytools/static/database.db') // 1024)
         with open('./pytools/python_articles/static/errors.txt', 'r', encoding='utf-8') as f:
             logs = f.readlines()
             return '<h2><a href="/python_articles/status?clean=1">Clean</a><br />%s</h2>%s' % (server_status, '<br>'.join(logs))
