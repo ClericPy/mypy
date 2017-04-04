@@ -57,7 +57,7 @@ def local_storage():
     # 重新按时间排序
     # 清理掉超过 maxnum 的部分
     maxnum = 1000000
-    toupdate_list = []
+    update_list = []
     crawl_articles = rules.get_all()
     # print('All crawl missions finished...')
     DB = Saver('./pytools/static/database.db')
@@ -72,11 +72,11 @@ def local_storage():
             continue
         if i['_id'] not in old_articles_dict.keys():
             new_articles.append(i)
-            toupdate_list.append(i)
+            update_list.append(i)
             old_articles_dict[i['_id']] = i
         else:
             old_articles_dict[i['_id']]['urls'].update(i['urls'])
-            toupdate_list.append(old_articles_dict[i['_id']])
+            update_list.append(old_articles_dict[i['_id']])
             # old_articles_dict[i['_id']]['like'] = old_articles_dict[i['_id']]['like'] | i['like']
             old_articles_dict[i['_id']]['level'] = max(
                 old_articles_dict[i['_id']]['level'], i['level'])
@@ -95,15 +95,15 @@ def local_storage():
     DB['article'] = (tops + normal_articles)[:maxnum]
     DB['time'] = time.time()
     DB['updatetime'] = ttime()
-    if toupdate_list:
-        for i in sync('./pytools/static/database.db',update_list=toupdate_list):
-            print(i)
+    if update_list:
+        for i in sync('./pytools/static/database.db',update_list=update_list):
+            logit(i)
     conn = sqlite3.connect('./pytools/static/database.db')
     conn.execute("VACUUM")
     conn.execute("VACUUM")
     conn.execute("VACUUM")
     conn.close()
-    print('已清理VACUUM...')
+    logit('已清理VACUUM...')
 
 
 def crawler_worker():
