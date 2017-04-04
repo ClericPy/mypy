@@ -17,7 +17,14 @@ def sync(db_path='./static/database.db', force_download=False, update_list=None)
                 yield 'start sync db... \nforce_download: %s; update_list: %s' % (
                     bool(force_download), len(update_list))
                 DB = Saver(db_path, mode='sqlitedict')
-
+                if update_list:
+                    # yield '%s docs need to update urls' % len(update_list)
+                    preview_titles = [i['title'] for i in update_list]
+                    for item in update_list:
+                        collection.update_one({'_id': item['_id']}, {
+                                              '$set': {'urls': item['urls']}})
+                    yield '%s update_list finished...\n%s' % len(update_list,preview_titles)
+                    return
                 if force_download:
                     yield 'force_download only...'
                     mongo_docs = list(collection.find())
@@ -55,12 +62,7 @@ def sync(db_path='./static/database.db', force_download=False, update_list=None)
                             local_docs + to_download, key=lambda x: x['time'],
                             reverse=True)
                     # yield '%s  %s' % (len(to_download), 'downloaded...')
-                if update_list:
-                    # yield '%s docs need to update urls' % len(update_list)
-                    for item in update_list:
-                        collection.update_one({'_id': item['_id']}, {
-                                              '$set': {'urls': item['urls']}})
-                    yield '%s update_list finished....' % len(update_list)
+                
                 yield '============== sync_db finished =============='
                 return
         except:

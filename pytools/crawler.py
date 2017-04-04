@@ -72,7 +72,7 @@ def local_storage():
             continue
         if i['_id'] not in old_articles_dict.keys():
             new_articles.append(i)
-            # old_articles_keys = old_articles_keys | {i['_id']}
+            toupdate_list.append(i)
             old_articles_dict[i['_id']] = i
         else:
             old_articles_dict[i['_id']]['urls'].update(i['urls'])
