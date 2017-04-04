@@ -95,9 +95,9 @@ def local_storage():
     DB['article'] = (tops + normal_articles)[:maxnum]
     DB['time'] = time.time()
     DB['updatetime'] = ttime()
-    for i in sync('./pytools/static/database.db',update_list=toupdate_list):
-        # 暂时没时间搞, 先全量匹配一次吧...
-        print(i)
+    if toupdate_list:
+        for i in sync('./pytools/static/database.db',update_list=toupdate_list):
+            print(i)
     conn = sqlite3.connect('./pytools/static/database.db')
     conn.execute("VACUUM")
     conn.execute("VACUUM")
