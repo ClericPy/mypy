@@ -9,7 +9,7 @@ mongodb_uri = os.environ.get('MONGODB_URI_LD')
 
 
 def sync(db_path='./static/database.db', force_download=False, update_list=None):
-    for _ in range(30):
+    for _ in range(3):
         try:
             with pymongo.MongoClient(mongodb_uri) as client:
                 collection = client.heroku_ggpxscwz.article
@@ -70,5 +70,6 @@ def sync(db_path='./static/database.db', force_download=False, update_list=None)
 
 
 if __name__ == '__main__':
-    for i in sync():
+    for i in sync('E:\github\database.db'):
         print(i)
+    os.system('pause')

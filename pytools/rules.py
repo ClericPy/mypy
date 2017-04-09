@@ -8,7 +8,6 @@ import time
 from html import unescape
 from urllib.parse import quote, unquote
 
-import requests
 from jsonpath_rw_ext import parse
 from lxml.html import fromstring, tostring
 from torequests import Async, threads, tPool
@@ -18,15 +17,52 @@ def md5(x):
     return hashlib.md5(str(x).encode('utf-8')).hexdigest()[8:-8]
 
 
-class ForNone:
-    @property
-    def text(self):
-        return ''
+class Null(object):
 
-    def get(self, *nothing):
-        return ''
+    def __init__(self, *args, **kwargs):
+        return
 
-nth = [ForNone()]
+    def __call__(self, *args, **kwargs):
+        return self
+
+    def __getattr__(self, mname):
+        return self
+
+    def __setattr__(self, name, value):
+        return self
+
+    def __getitem__(self, key):
+        return self
+
+    def __delattr__(self, name):
+        return self
+
+    def __repr__(self):
+        return ""
+
+    def __str__(self):
+        return ""
+
+    def __bool__(self):
+        return False
+
+
+def get_true(sth):
+    return sth or ''
+
+null = Null()
+trequests = tPool(50)
+thisday = datetime.datetime.today()
+# time1 = int(time.time())
+
+http_local_proxy = list(
+    {"101.226.249.237:80", "122.147.24.103:8080", "81.82.240.15:8080", "194.102.229.246:80"})
+headers = {'User-Agent':
+           'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:45.0) Gecko/20100101 Firefox/45.0', 'Connection': 'close'}
+# proxies = {'http':None,'https':None}
+
+
+default_args = dict(headers=headers, timeout=20)
 
 
 def jp(raw_json, jsonpath):
@@ -79,39 +115,35 @@ def cleanid(title):
 # {source_name: url}, 'time': time1}]
 
 
-@threads()
-def get_gzh(url):
-    r = requests.get(url)
-    scode = r.text
-    title = unescape(getlist1(re.findall('var msg_title = "(.*?)";', scode)))
-    cover = re.sub('\?wx_fmt=\w+$', '',
-                   unescape(getlist1(re.findall('var msg_cdn_url = "(.*?)";', scode))))
-    description = unescape(
-        getlist1(re.findall('var msg_desc = "(.*?)";', scode)))
-    url = unescape(getlist1(re.findall('var msg_link = "(.*?)";', scode)))
-    return dict(url=url, description=description, title=title, cover=cover)
-
-
-
-trequests = tPool()
-thisday = datetime.datetime.today()
-# time1 = int(time.time())
-
-http_local_proxy = list(
-    {"101.226.249.237:80", "122.147.24.103:8080", "81.82.240.15:8080", "194.102.229.246:80"})
-headers = {'User-Agent':
-           'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:45.0) Gecko/20100101 Firefox/45.0', 'Connection': 'close'}
-# proxies = {'http':None,'https':None}
-
-
-default_args = dict(headers=headers, timeout=20)
+def common_zhihu_zhuanlan(url, source_name):
+    source_name = '知乎专栏-%s' % source_name
+    time1 = int(time.time())
+    level = 3
+    if not url.startswith('http'):
+        url = 'https://zhuanlan.zhihu.com/api/columns/%s/posts?limit=20' % url
+    r = trequests.get(url, retry=1, **default_args)
+    items = r.json()
+    if not items:
+        logit('%s 解析失败.' % source_name)
+        return
+    titles = [unescape(i.get('title', '').strip()) for i in items]
+    if '' in titles:
+        logit('%s 出现空Title字段。' % source_name)
+    covers = [i.get('titleImage') or '' for i in items]
+    urls = ['https://zhuanlan.zhihu.com%s' % i.get('url', '') for i in items]
+    descriptions = [re.sub('<[\s\S]*?>','',unescape(i.get('content') or ''))[:30] for i in items]
+    result = [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime':0, 'urls':{
+        source_name: i[3]}, 'time':time1} for i in zip(titles, covers, descriptions, urls)]
+    print('%s finished: %s gotten.' % (source_name, len(result)))
+    assert len(result) > 0, '%s 抓取结果为 0。' % source_name
+    return result
 
 
 def spider_bole_article(proxy=None):
     source_name = '伯乐文章'
     time1 = int(time.time())
     level = 3
-    r = requests.get(
+    r = trequests.get(
         'http://python.jobbole.com/all-posts/', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath(
         '//div[@id="archive"]/div[@class="post floated-thumb"]')
@@ -142,7 +174,7 @@ def spider_python_weekly(proxy=None):
     source_name = 'Python Weekly'
     time1 = int(time.time())
     level = 4
-    r = requests.get(
+    r = trequests.get(
         'http://us2.campaign-archive1.com/home/?u=e2e180baf855ac797ef407fc7&id=9e26887fc5', proxies=proxy, **default_args)
     scode = r.text
     item = getlist1(re.findall('<li class="campaign">(.*?)</li>', scode))
@@ -165,14 +197,14 @@ def spider_pycoders_weekly(proxy=None):
     time1 = int(time.time())
     level = 4
     sourceurl = 'http://us4.campaign-archive1.com/home/?u=9735795484d2e4c204da82a29&id=64134e0a27'
-    r = requests.get(
+    r = trequests.get(
         sourceurl, proxies=proxy, **default_args)
     scode = r.text
-    css = fromstring(scode).cssselect('#archive-list li a') or nth
+    css = fromstring(scode).cssselect('#archive-list li a') or null
 
-    title = unescape(css[0].text)
+    title = unescape(css[0].text or '')
     cover = 'static/pics/pycoders.png'
-    url = unquote(css[0].get('href', ''))
+    url = unquote(css[0].get('href', '') or '')
     description = 'Pycoders Weekly dose of all things Python. <a target="_blank" href="%s">Past Issues</a>' % sourceurl
     result = [{'title': title, '_id': cleanid(title), 'level': level, 'cover': cover, 'description': description, 'toptime': 24 * 3600, 'urls': {
         source_name: url}, 'time': time1}]
@@ -186,23 +218,20 @@ def spider_importpython(proxy=None):
     source_name = 'Import Python'
     time1 = int(time.time())
     level = 4
-    r = requests.get(
+    r = trequests.get(
         'http://importpython.com/newsletter/archive/', proxies=proxy, **default_args)
     scode = r.text
-
-    # head =
-    # tostring(fromstring(preview1).xpath('//head/style')[0]).decode('utf-8')
     items = fromstring(
         r.content.decode('utf-8')).cssselect('.container> .row .thumbnail')[:10]
     titles = [
-        unescape((i.cssselect('h4') or nth)[0].text or '').strip() for i in items]
+        unescape((i.cssselect('h4') or null)[0].text or '').strip() for i in items]
     if '' in titles:
         logit('%s 出现空Title字段。' % source_name)
     covers = ['' for i in items]
     urls = ['http://importpython.com' +
-            (i.cssselect('.caption>a') or nth)[0].get('href') for i in items]
+            ((i.cssselect('.caption>a') or null)[0].get('href') or '') for i in items]
     descriptions = [unescape(
-        (i.cssselect('div>div:nth-child(2) ') or nth)[0].text or '').strip() for i in items]
+        (i.cssselect('div>div:nth-child(2) ') or null)[0].text or '').strip() for i in items]
     result = [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime':0, 'urls':{
         source_name: i[3]}, 'time':time1} for i in zip(titles, covers, descriptions, urls)]
     print('%s finished: %s gotten.' % (source_name, len(result)))
@@ -241,7 +270,7 @@ def spider_weekly_manong(proxy=None):
     source_name = '码农周刊'
     time1 = int(time.time())
     level = 4
-    r = requests.get(
+    r = trequests.get(
         'http://weekly.manong.io/issues/', proxies=proxy, **default_args)
     scode = r.text
     # head =
@@ -264,7 +293,7 @@ def spider_weekly_pychina(proxy=None):
     source_name = '蠎周刊'
     time1 = int(time.time())
     level = 4
-    r = requests.get(
+    r = trequests.get(
         'http://weekly.pychina.org/', proxies=proxy, **default_args)
     scode = r.content.decode('utf-8')
     # head = tostring(fromstring(preview1).xpath('//head/style')[0]).decode('utf-8')
@@ -288,7 +317,7 @@ def spider_jb51_python(proxy=None):
     source_name = '脚本之家'
     time1 = int(time.time())
     level = 2
-    r = requests.get(
+    r = trequests.get(
         'http://www.jb51.net/list/list_97_1.htm', proxies=proxy, **default_args)
     items = fromstring(r.content.decode('gb18030')).xpath(
         '//div[@class="artlist clearfix"]/dl/dt')
@@ -311,7 +340,7 @@ def no_spider_csdn_blog_python():
     source_name = 'CSDN博客'
     time1 = int(time.time())
     level = 2
-    r = requests.get(
+    r = trequests.get(
         'http://blog.csdn.net/tag/details.html?tag=python', proxies=proxy, **default_args)
     # print(r.text)
     items = json.loads(
@@ -337,7 +366,7 @@ def spider_geek_python(proxy=None):
     source_name = '极客头条'
     time1 = int(time.time())
     level = 3
-    r = requests.get(
+    r = trequests.get(
         'http://geek.csdn.net/forum/68?t=h', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath('//dl[@class="geek_list"]/dd')
     titles = [
@@ -361,7 +390,7 @@ def spider_xitu_gold(proxy=None):
     headers1 = headers.copy()
     headers1.update({"x-avoscloud-request-sign": "dd36c74cb860e12f7e12ac1c9c14917f,2139632477696",
                      "X-avoscloud-Application-Id": "mhke0kuv33myn4t4ghuid4oq2hjj12li374hvcif202y5bm6"})
-    r = requests.get(
+    r = trequests.get(
         'https://api.leancloud.cn/1.1/classes/Entry?include=user,user.installation&limit=15&order=-createdAt&where={"tags":{"__type":"Pointer","className":"Tag","objectId":"559a7227e4b08a686d25744f"}}', timeout=20, headers=headers1)
     # print(r.text)
     items = r.json().get('results', [])
@@ -387,7 +416,8 @@ def spider_planet_python(proxy=None):
     source_name = 'Planet Python'
     time1 = int(time.time())
     level = 3
-    r = requests.get('http://planetpython.org/', proxies=proxy, **default_args)
+    r = trequests.get('http://planetpython.org/',
+                      proxies=proxy, **default_args)
     items = re.findall(
         '(<h3 class="post">[\s\S]*?</h4>)', r.content.decode('utf-8'))
     titles = [unescape(getlist1(re.findall('<h4><a.*?>(.*?)</a></h4>', i)))
@@ -410,7 +440,7 @@ def old_spider_oschina_translate(proxy=None):
     source_name = '开源中国'
     time1 = int(time.time())
     level = 4
-    r = requests.get(
+    r = trequests.get(
         'http://www.oschina.net/translate/tag/python', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath('//div[@class="article"]')[:10]
     titles = [
@@ -432,7 +462,7 @@ def spider_bole_toutiao(proxy=None):
     source_name = '伯乐头条'
     time1 = int(time.time())
     level = 3
-    r = requests.get(
+    r = trequests.get(
         'http://top.jobbole.com/tag/python/?sort=latest', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath('//li[@class="media"]')
     titles = [
@@ -453,7 +483,7 @@ def spider_phpxs_daimapianduan(proxy=None):
     source_name = '代码片段'
     time1 = int(time.time())
     level = 3
-    r = requests.get(
+    r = trequests.get(
         'http://www.phpxs.com/code/python', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath('//li[@class="archive-simple"]')
     titles = [
@@ -476,7 +506,7 @@ def spider_jb51_ebook(proxy=None):
     source_name = '脚本之家(eBook)'
     time1 = int(time.time())
     level = 3
-    r = requests.get(
+    r = trequests.get(
         'http://www.jb51.net/books/list476_1.html', proxies=proxy, **default_args)
     items = fromstring(r.content.decode('gb18030')).xpath(
         '//ul[@class="cur-cat-list"]/li')
@@ -502,8 +532,8 @@ def spider_python_hackernews(proxy=None):
     source_name = 'Hacker News'
     time1 = int(time.time())
     level = 4
-    r = requests.post('https://uj5wyc0l7x-dsn.algolia.net/1/indexes/Item_production_sort_date/query?X-Algolia-API-Key=8ece23f8eb07cd25d40262a1764599b1&X-Algolia-Application-Id=UJ5WYC0L7X',
-                      data='{"params":"query=python&hitsPerPage=20&minWordSizefor1Typo=5&minWordSizefor2Typos=9&advancedSyntax=true&ignorePlurals=false&tagFilters=%5B%22story%22%5D&numericFilters=%5B%22created_at_i%3E1459356642.649%22%5D&page=0&queryType=prefixLast&typoTolerance=false&restrictSearchableAttributes=%5B%5D"}', proxies=proxy, **default_args)
+    r = trequests.post('https://uj5wyc0l7x-dsn.algolia.net/1/indexes/Item_production_sort_date/query?X-Algolia-API-Key=8ece23f8eb07cd25d40262a1764599b1&X-Algolia-Application-Id=UJ5WYC0L7X',
+                       data='{"params":"query=python&hitsPerPage=20&minWordSizefor1Typo=5&minWordSizefor2Typos=9&advancedSyntax=true&ignorePlurals=false&tagFilters=%5B%22story%22%5D&numericFilters=%5B%22created_at_i%3E1459356642.649%22%5D&page=0&queryType=prefixLast&typoTolerance=false&restrictSearchableAttributes=%5B%5D"}', proxies=proxy, **default_args)
     items = r.json().get('hits', [])
     if not items:
         logit('%s 解析失败.' % source_name)
@@ -527,7 +557,7 @@ def spider_news_codingpy(proxy=None):
     source_name = '编程派'
     time1 = int(time.time())
     level = 4
-    r = requests.get('http://codingpy.com/', proxies=proxy, **default_args)
+    r = trequests.get('http://codingpy.com/', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath('//div[@class="js-infinite-item"]')
     titles = [unescape(getlist1(i.xpath('.//h2/text()')).strip())
               for i in items]
@@ -550,7 +580,7 @@ def spider_segmentfault_article(proxy=None):
     source_name = 'SegmentFault'
     time1 = int(time.time())
     level = 3
-    r = requests.get(
+    r = trequests.get(
         'https://segmentfault.com/t/python/blogs', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath(
         '//div[@class="stream-list blog-stream"]/section')
@@ -574,7 +604,7 @@ def spider_tuicool_article(proxy=None):
     source_name = '推酷'
     time1 = int(time.time())
     level = 3
-    r = requests.get(
+    r = trequests.get(
         'http://www.tuicool.com/topics/11130000?st=1&lang=0', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath('//div[@class="list_article_item"]')
     titles = [unescape(getlist1(
@@ -623,7 +653,7 @@ def spider_doughellmann_article(proxy=None):
     source_name = 'Doug Hellmann\'s Blog'
     time1 = int(time.time())
     level = 4
-    r = requests.get(
+    r = trequests.get(
         'https://doughellmann.com/blog/', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath('//main[@class="site-main"]/article')
     titles = [
@@ -646,7 +676,7 @@ def spider_maisui_python(proxy=None):
     source_name = '麦穗技术'
     time1 = int(time.time())
     level = 3
-    r = requests.get(
+    r = trequests.get(
         'http://www.58maisui.com/category/python/', proxies=proxy, **default_args)
     items = fromstring(r.text).xpath('//main[@class="site-main"]/article')
     titles = [
@@ -668,19 +698,19 @@ def spider_fengyun_python(proxy=None):
     source_name = "峰云's blog"
     time1 = int(time.time())
     level = 3
-    r = requests.get(
+    r = trequests.get(
         'http://xiaorui.cc/category/python/', proxies=proxy, **default_args)
     # return r.text
     items = fromstring(r.text).cssselect('#mainstay .article')
     titles = [unescape(
-        (i.cssselect('.title-article h1 a') or nth)[0].text).strip() for i in items]
+        (i.cssselect('.title-article h1 a') or null)[0].text or '').strip() for i in items]
     if '' in titles:
         logit('%s 出现空Title字段。' % source_name)
     covers = ['' for i in items]
-    urls = [(i.cssselect('.title-article h1 a') or nth)[0].get('href')
+    urls = [(i.cssselect('.title-article h1 a') or null)[0].get('href') or ''
             for i in items]
     descriptions = [
-        unescape((i.cssselect('.alert-zan') or nth)[0].text).strip() for i in items]
+        unescape((i.cssselect('.alert-zan') or null)[0].text or '').strip() for i in items]
     result = [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime':0, 'urls':{
         source_name: i[3]}, 'time':time1} for i in zip(titles, covers, descriptions, urls)]
     print('%s finished: %s gotten.' % (source_name, len(result)))
@@ -697,13 +727,14 @@ def spider_gitbook_python(proxy=None):
         'https://www.gitbook.com/explore/topic/python?sort=latest&lang=en', retry=1, proxies=proxy, **default_args)
     items = fromstring(r.content.decode('utf-8')).cssselect('.Books .Book')
     titles = [
-        unescape((i.cssselect('.title>a') or nth)[0].text).strip() for i in items]
+        unescape((i.cssselect('.title>a') or null)[0].text or '').strip() for i in items]
     if '' in titles:
         logit('%s 出现空Title字段。' % source_name)
     covers = ['' for i in items]
-    urls = [(i.cssselect('.title>a') or nth)[0].get('href') for i in items]
+    urls = [(i.cssselect('.title>a') or null)[
+        0].get('href') or '' for i in items]
     descriptions = [unescape(
-        (i.cssselect('.description') or nth)[0].text or '').strip() for i in items]
+        (i.cssselect('.description') or null)[0].text or '').strip() for i in items]
     result += [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime':0, 'urls':{
         source_name: i[3]}, 'time':time1} for i in zip(titles, covers, descriptions, urls)]
 
@@ -711,13 +742,14 @@ def spider_gitbook_python(proxy=None):
         'https://www.gitbook.com/explore/topic/python?sort=latest&lang=zh', retry=1, proxies=proxy, **default_args)
     items = fromstring(r.content.decode('utf-8')).cssselect('.Books .Book')
     titles = [
-        unescape((i.cssselect('.title>a') or nth)[0].text).strip() for i in items]
+        unescape((i.cssselect('.title>a') or null)[0].text or '').strip() for i in items]
     if '' in titles:
         logit('%s 出现空Title字段。' % source_name)
     covers = ['' for i in items]
-    urls = [(i.cssselect('.title>a') or nth)[0].get('href') for i in items]
+    urls = [(i.cssselect('.title>a') or null)[
+        0].get('href') or '' for i in items]
     descriptions = [unescape(
-        (i.cssselect('.description') or nth)[0].text or '').strip() for i in items]
+        (i.cssselect('.description') or null)[0].text or '').strip() for i in items]
     result += [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime':0, 'urls':{
         source_name: i[3]}, 'time':time1} for i in zip(titles, covers, descriptions, urls)]
     print('%s finished: %s gotten.' % (source_name, len(result)))
@@ -734,14 +766,14 @@ def spider_yus_python(proxy=None):
         'http://blog.rainy.im/', retry=1, proxies=proxy, **default_args)
     items = fromstring(r.text).cssselect('#post-list li')
     titles = [unescape(
-        (i.cssselect('.entry-title>a') or nth)[0].text or '').strip() for i in items]
+        (i.cssselect('.entry-title>a') or null)[0].text or '').strip() for i in items]
     if '' in titles:
         logit('%s 出现空Title字段。' % source_name)
     covers = ['' for i in items]
     urls = ['http://blog.rainy.im' +
-            (i.cssselect('.entry-title>a') or nth)[0].get('href') for i in items]
+            ((i.cssselect('.entry-title>a') or null)[0].get('href') or '') for i in items]
     descriptions = [unescape(
-        (i.cssselect('.entry-content>p') or nth)[0].text or '').strip()[:80] for i in items]
+        (i.cssselect('.entry-content>p') or null)[0].text or '').strip()[:80] for i in items]
     result += [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime':0, 'urls':{
         source_name: i[3]}, 'time':time1} for i in zip(titles, covers, descriptions, urls)]
 
@@ -755,24 +787,37 @@ def spider_funhacks_python(proxy=None):
     time1 = int(time.time())
     level = 3
     result = []
-    r = requests.get(
+    r = trequests.get(
         'http://funhacks.net/categories/Python/', proxies=proxy, **default_args)
     items = fromstring(r.text).cssselect('.archive-article-header')
     titles = [unescape(
-        (i.cssselect('.archive-article-title') or nth)[0].text or '').strip() for i in items]
+        (i.cssselect('.archive-article-title') or null)[0].text or '').strip() for i in items]
     if '' in titles:
         logit('%s 出现空Title字段。' % source_name)
     covers = ['' for i in items]
     urls = ['https://funhacks.net' +
-            (i.cssselect('.archive-article-title') or nth)[0].get('href') for i in items]
+            ((i.cssselect('.archive-article-title') or null)[0].get('href') or '') for i in items]
     descriptions = [unescape(
-        (i.cssselect('.time') or nth)[0].text or '').strip() for i in items]
+        (i.cssselect('.time') or null)[0].text or '').strip() for i in items]
     result += [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime':0, 'urls':{
         source_name: i[3]}, 'time':time1} for i in zip(titles, covers, descriptions, urls)]
 
     print('%s finished: %s gotten.' % (source_name, len(result)))
     assert len(result) > 0, '%s 抓取结果为 0。' % source_name
     return result
+
+def spider_zhihu_zhuanlan_pythoncoder(proxy=None):
+    return  common_zhihu_zhuanlan('pythoncoder','Python开发者社区')
+
+def spider_zhihu_zhuanlan_pythonpx(proxy=None):
+    return  common_zhihu_zhuanlan('https://zhuanlan.zhihu.com/api/columns/pythonpx/posts?limit=20&topic=872','通过python学会编程')
+
+def spider_zhihu_zhuanlan_python_cn(proxy=None):
+    return  common_zhihu_zhuanlan('https://zhuanlan.zhihu.com/api/columns/python-cn/posts?limit=20&topic=872','Python之美')
+
+
+def spider_zhihu_zhuanlan_passer(proxy=None):
+    return  common_zhihu_zhuanlan('https://zhuanlan.zhihu.com/api/columns/passer/posts?limit=20&topic=872','学习编程')
 
 
 def auto_retry(func, fail=None, n=2):
@@ -821,7 +866,7 @@ def get_all():
 if __name__ == '__main__':
     # print('请使用其他模块进行调用')
     from pprint import pprint
-    test = spider_maisui_python()
+    test = spider_zhihu_zhuanlan_passer()[:3]
     pprint(test)
     print(schema_check(test))
     # test_schema(test) # 对返回结果的合法性做测试

@@ -2,6 +2,7 @@ import datetime
 import hashlib
 import re
 import time
+import sqlite3
 from collections import Counter
 
 import requests
@@ -24,18 +25,9 @@ def time2week(time1):
 
 
 def update_docs():
-    with SqliteDict('database.db', autocommit=True) as DB:
-        ss = DB['article']
-        # print(len(ss),len(set([i['title'] for i in ss])))
-        print(ss[0])
-        # input()
-        # for i in ss:
-        #     i['_id'] = i.pop('id')
-        #     i['md5'] = md5(i['_id'])
-        #     i['datetime'] = ttime(i['time'])
-        # # print(max([i['time'] for i in ss]))
-        # DB['article'] = ss
-        print('done')
+    with pymongo.MongoClient(mongodb_uri) as client:
+        collection = client.heroku_ggpxscwz.article
+        update_list = []
 
 
 update_docs()
