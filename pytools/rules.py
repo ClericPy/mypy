@@ -129,7 +129,7 @@ def common_zhihu_zhuanlan(url, source_name):
     titles = [unescape(i.get('title', '').strip()) for i in items]
     if '' in titles:
         logit('%s 出现空Title字段。' % source_name)
-    covers = [i.get('titleImage') or '' for i in items]
+    covers = ['' for i in items]
     urls = ['https://zhuanlan.zhihu.com%s' % i.get('url', '') for i in items]
     descriptions = [re.sub('<[\s\S]*?>','',unescape(i.get('content') or ''))[:30] for i in items]
     result = [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime':0, 'urls':{
