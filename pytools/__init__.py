@@ -2,13 +2,12 @@
 import os
 import random
 import time
-import traceback
+
 from threading import Timer
 
 import flask
 import psutil
 import requests
-import pymongo
 
 from .crawler import crawler_worker
 from .python_articles import python_articles
@@ -36,7 +35,6 @@ def logit(string):
 
 
 app = flask.Flask(__name__)
-mongodb_uri = os.environ.get('MONGODB_URI_LD')
 DB = Saver('./pytools/static/database.db', mode='sqlitedict')
 DB['spider_status'] = 'free'
 DB['spider_time'] = 0
@@ -103,6 +101,9 @@ def showall():
 
 def do_some_work():
     try:
+        import traceback
+        import pymongo
+        mongodb_uri = os.environ.get('MONGODB_URI_LD')
         with pymongo.MongoClient(mongodb_uri) as client:
             collection = client.heroku_ggpxscwz.article
             mongo_docs = list(collection.find())
@@ -124,7 +125,7 @@ def time_machine():
     # 每隔 5 分钟检测一次，如果爬虫worker空闲，且上次完成时间已经过去30分钟，则执行爬虫子进程。
     global not_sync_yet
     if not_sync_yet:  # :
-        do_some_work()
+        # do_some_work()
         for i in sync('./pytools/static/database.db', True):
             logit(i)
         not_sync_yet = 0
