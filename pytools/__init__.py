@@ -2,11 +2,13 @@
 import os
 import random
 import time
+import traceback
 from threading import Timer
 
 import flask
 import psutil
 import requests
+import pymongo
 
 from .crawler import crawler_worker
 from .python_articles import python_articles
@@ -32,8 +34,9 @@ def logit(string):
     with open('./pytools/python_articles/static/errors.txt', 'a', encoding='utf-8') as f:
         f.write(log_string)
 
-app = flask.Flask(__name__)
 
+app = flask.Flask(__name__)
+mongodb_uri = os.environ.get('MONGODB_URI_LD')
 DB = Saver('./pytools/static/database.db', mode='sqlitedict')
 DB['spider_status'] = 'free'
 DB['spider_time'] = 0
@@ -98,12 +101,31 @@ def showall():
 # def root():
 #     return app.send_static_file('database.db')
 
+def do_some_work():
+    try:
+        with pymongo.MongoClient(mongodb_uri) as client:
+            collection = client.heroku_ggpxscwz.article
+            mongo_docs = list(collection.find())
+            update_list = [
+                i for i in mongo_docs if '稀土掘金' in i['urls'].keys()]
+            print(len(update_list))
+            for x, item in enumerate(update_list, 1):
+                item['cover'] = ''
+                collection.update_one({'_id': item['_id']}, {
+                    '$set': item}, upsert=True)
+
+                print(x, '/', len(update_list), item['title'])
+    except:
+        traceback.print_exc()
+
+
 def time_machine():
     # print('启动爬虫： %s' % os.getpid())
     # 每隔 5 分钟检测一次，如果爬虫worker空闲，且上次完成时间已经过去30分钟，则执行爬虫子进程。
     global not_sync_yet
     if not_sync_yet:  # :
-        for i in sync('./pytools/static/database.db', os.environ.get('DOWNLOAD_FROM_MONGODB')):
+        do_some_work()
+        for i in sync('./pytools/static/database.db', True):
             logit(i)
         not_sync_yet = 0
     while 1:

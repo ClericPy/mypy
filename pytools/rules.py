@@ -400,7 +400,7 @@ def spider_xitu_gold(proxy=None):
     titles = [unescape(i.get('title', '').strip()) for i in items]
     if '' in titles:
         logit('%s 出现空Title字段。' % source_name)
-    covers = [getlist1(jp(i, '$.screenshot.url')) for i in items]
+    covers = [re.sub('.*user-gold-cdn.xitu.io.*','',getlist1(jp(i, '$.screenshot.url'))) for i in items]
     urls = [i.get('originalUrl', 'http://gold.xitu.io/#/tag/Python')
             for i in items]
     descriptions = [unescape(i.get('createdAt', '').split('T')[0])
@@ -866,7 +866,7 @@ def get_all():
 if __name__ == '__main__':
     # print('请使用其他模块进行调用')
     from pprint import pprint
-    test = spider_zhihu_zhuanlan_passer()[:3]
+    test = spider_xitu_gold()[:3]
     pprint(test)
     print(schema_check(test))
     # test_schema(test) # 对返回结果的合法性做测试

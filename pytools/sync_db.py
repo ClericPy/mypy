@@ -9,7 +9,7 @@ mongodb_uri = os.environ.get('MONGODB_URI_LD')
 
 
 def sync(db_path='./static/database.db', force_download=False, update_list=None):
-    for _ in range(3):
+    for _ in range(5):
         try:
             with pymongo.MongoClient(mongodb_uri) as client:
                 collection = client.heroku_ggpxscwz.article
