@@ -50,16 +50,18 @@ def update_online_docs():
     input('over...')
 
 
-def clean_local_db():
+def db_init_tool():
     db = Saver('database.db', 'sqlitedict')
-    db['article'] = [{'_id': '提高你的python解释yield和generators生成器',
-                      'cover': '',
-                      'description': '2017-04-11',
-                      'level': 3,
-                      'time': 1491927304,
-                      'title': '服务器正在初始化, 请稍候',
-                      'toptime': 0,
-                      'urls': {'Github': 'https://github.com/ClericPy'}}]
+    init_state = {
+        'spider_time': 0, 'updatetime': '2017-04-05 02:31:30',
+        'spider_status': 'free', 'time': 0,
+        'article': [
+            {'_id': '提高你的python解释yield和generators生成器', 'cover': '',
+             'description': '2017-04-11', 'level': 3, 'time': 1491927304,
+             'title': '服务器正在初始化, 请稍候', 'toptime': 0, 'urls':
+             {'Github': 'https://github.com/ClericPy'}}
+        ]}
+    db.update(init_state)
 
     conn = sqlite3.connect('database.db')
     conn.execute("VACUUM")
@@ -69,4 +71,4 @@ def clean_local_db():
 
 
 # update_online_docs()
-clean_local_db()
+db_init_tool()
