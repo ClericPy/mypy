@@ -78,7 +78,7 @@ def json_api():
                 result = [doc for doc in articles if doc['time']>int(timestamp)]
                 return flask.jsonify(result=result, num=total)
             else:
-                result = articles[:100]
+                result = articles
                 return flask.jsonify(result=result, num=total)
 
     except:

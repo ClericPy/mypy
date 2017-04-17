@@ -806,6 +806,31 @@ def spider_funhacks_python(proxy=None):
     assert len(result) > 0, '%s 抓取结果为 0。' % source_name
     return result
 
+def spider_toutiao_python(proxy=None):
+    source_name = '开发者头条'
+    time1 = int(time.time())
+    level = 3
+    result = []
+    r = trequests.get(
+        'https://toutiao.io/tags/python?type=latest', proxies=proxy, **default_args)
+    items = fromstring(r.text).cssselect('.post')
+    titles = [unescape(
+        (i.cssselect('.title>a') or null)[0].text or '').strip() for i in items]
+    if '' in titles:
+        logit('%s 出现空Title字段。' % source_name)
+    covers = ['' for i in items]
+    urls = ['https://toutiao.io' +
+            ((i.cssselect('.summary>a') or null)[0].get('href') or '') for i in items]
+    descriptions = [unescape(
+        (i.cssselect('.summary>a') or null)[0].text or '').strip() for i in items]
+    result += [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime':0, 'urls':{
+        source_name: i[3]}, 'time':time1} for i in zip(titles, covers, descriptions, urls)]
+
+    print('%s finished: %s gotten.' % (source_name, len(result)))
+    assert len(result) > 0, '%s 抓取结果为 0。' % source_name
+    return result
+
+
 def spider_zhihu_zhuanlan_pythoncoder(proxy=None):
     return  common_zhihu_zhuanlan('pythoncoder','Python开发者社区')
 
@@ -866,7 +891,7 @@ def get_all():
 if __name__ == '__main__':
     # print('请使用其他模块进行调用')
     from pprint import pprint
-    test = spider_xitu_gold()[:3]
+    test = spider_toutiao_python()[:3]
     pprint(test)
     print(schema_check(test))
     # test_schema(test) # 对返回结果的合法性做测试
