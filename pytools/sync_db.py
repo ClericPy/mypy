@@ -10,6 +10,7 @@ mongodb_uri = os.environ.get('MONGODB_URI_LD')
 
 
 def sync_heroku(db_path):
+    DB = Saver(db_path, mode='sqlitedict')
     local_docs = DB['article']
     mongo_docs = requests.get('http://pyld.herokuapp.com/python_articles/json').json()['result']
     local_len = len(local_docs)

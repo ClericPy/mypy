@@ -837,7 +837,7 @@ def spider_tuicool_mags(proxy=None):
     result = []
     r = trequests.get(
         'http://www.tuicool.com/mags', proxies=proxy, **default_args)
-    items = fromstring(r.text).cssselect('.mag-period-item')
+    items = fromstring(r.text).cssselect('.mag-period-item')[:3]
     titles = [unescape(
         (i.cssselect('a') or null)[0].text or '').strip() for i in items]
     if '' in titles:
@@ -847,8 +847,8 @@ def spider_tuicool_mags(proxy=None):
             ((i.cssselect('a') or null)[0].get('href') or '') for i in items]
     descriptions = [unescape(
         (i.cssselect('.mag-tip') or null)[0].text or '').strip() for i in items]
-    result += [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime': 12*3600, 'urls':{
-        source_name: i[3]}, 'time':time1-86400} for i in zip(titles, covers, descriptions, urls)]
+    result += [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime': 24*3600, 'urls':{
+        source_name: i[3]}, 'time':time1} for i in zip(titles, covers, descriptions, urls)]
 
     print('%s finished: %s gotten.' % (source_name, len(result)))
     assert len(result) > 0, '%s 抓取结果为 0。' % source_name
