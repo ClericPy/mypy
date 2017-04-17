@@ -830,6 +830,30 @@ def spider_toutiao_python(proxy=None):
     assert len(result) > 0, '%s 抓取结果为 0。' % source_name
     return result
 
+def spider_tuicool_mags(proxy=None):
+    source_name = '推酷-编程狂人'
+    time1 = int(time.time())
+    level = 4
+    result = []
+    r = trequests.get(
+        'http://www.tuicool.com/mags', proxies=proxy, **default_args)
+    items = fromstring(r.text).cssselect('.mag-period-item')
+    titles = [unescape(
+        (i.cssselect('a') or null)[0].text or '').strip() for i in items]
+    if '' in titles:
+        logit('%s 出现空Title字段。' % source_name)
+    covers = ['' for i in items]
+    urls = ['http://www.tuicool.com' +
+            ((i.cssselect('a') or null)[0].get('href') or '') for i in items]
+    descriptions = [unescape(
+        (i.cssselect('.mag-tip') or null)[0].text or '').strip() for i in items]
+    result += [{'title': i[0], '_id':cleanid(i[0]), 'level':level, 'cover':i[1], 'description':i[2], 'toptime': 12*3600, 'urls':{
+        source_name: i[3]}, 'time':time1-86400} for i in zip(titles, covers, descriptions, urls)]
+
+    print('%s finished: %s gotten.' % (source_name, len(result)))
+    assert len(result) > 0, '%s 抓取结果为 0。' % source_name
+    return result
+
 
 def spider_zhihu_zhuanlan_pythoncoder(proxy=None):
     return  common_zhihu_zhuanlan('pythoncoder','Python开发者社区')
@@ -891,7 +915,7 @@ def get_all():
 if __name__ == '__main__':
     # print('请使用其他模块进行调用')
     from pprint import pprint
-    test = spider_toutiao_python()[:3]
+    test = spider_tuicool_mags()[:3]
     pprint(test)
     print(schema_check(test))
     # test_schema(test) # 对返回结果的合法性做测试
